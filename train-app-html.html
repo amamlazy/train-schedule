@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>電車時刻表アプリ</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <header>
+      <h1>電車時刻表</h1>
+    </header>
+    
+    <div class="selection-area">
+      <select id="station-select">
+        <option value="">駅を選択</option>
+        <!-- 駅一覧はJSで動的に生成 -->
+      </select>
+      
+      <select id="direction-select" disabled>
+        <option value="">方面を選択</option>
+        <!-- 方面一覧はJSで動的に生成 -->
+      </select>
+    </div>
+    
+    <div class="current-time-container">
+      <p>現在時刻: <span id="current-time">--:--</span></p>
+    </div>
+    
+    <div class="next-trains-container">
+      <h2>次の電車</h2>
+      <div id="train-list" class="train-list">
+        <!-- 電車情報はJSで動的に生成 -->
+        <p class="no-selection">駅と方面を選択してください</p>
+      </div>
+    </div>
+    
+    <div class="action-buttons">
+      <button id="refresh-btn">更新</button>
+      <button id="favorite-btn" disabled>お気に入りに登録</button>
+    </div>
+    
+    <div class="favorites-container" id="favorites-container">
+      <h3>お気に入り</h3>
+      <div id="favorites-list" class="favorites-list">
+        <!-- お気に入りはJSで動的に生成 -->
+      </div>
+    </div>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
