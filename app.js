@@ -4,9 +4,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const directionSelect = document.getElementById('direction-select');
   const trainList = document.getElementById('train-list');
   const currentTimeElement = document.getElementById('current-time');
+  const dayTypeElement = document.getElementById('day-type');
   const refreshBtn = document.getElementById('refresh-btn');
   const favoriteBtn = document.getElementById('favorite-btn');
   const favoritesList = document.getElementById('favorites-list');
+  const nearestStationBtn = document.getElementById('nearest-station-btn');
+  const loadingIndicator = document.getElementById('loading-indicator');
+  const toast = document.getElementById('toast');
   
   // お気に入りデータを取得
   let favorites = JSON.parse(localStorage.getItem('trainFavorites')) || [];
@@ -26,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
     directionSelect.addEventListener('change', onDirectionChange);
     refreshBtn.addEventListener('click', updateTrainList);
     favoriteBtn.addEventListener('click', addFavorite);
+    nearestStationBtn.addEventListener('click', findNearestStation);
     
     // 現在時刻の初期表示
     updateCurrentTime();
@@ -33,13 +38,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // お気に入りの表示
     renderFavorites();
     
-    // 1分ごとに更新
+    // 1秒ごとに時刻を更新
     setInterval(() => {
       updateCurrentTime();
+    }, 1000);
+    
+    // 30秒ごとに電車リストを更新（選択されている場合）
+    setInterval(() => {
       if (stationSelect.value && directionSelect.value) {
         updateTrainList();
       }
-    }, 60000);
+    }, 30000);
   }
   
   // 現在時刻を更新する関数
@@ -47,8 +56,47 @@ document.addEventListener('DOMContentLoaded', () => {
     const now = new Date();
     const hours = now.getHours().toString().padStart(2, '0');
     const minutes = now.getMinutes().toString().padStart(2, '0');
-    currentTimeElement.textContent = `${hours}:${minutes}`;
+    const seconds = now.getSeconds().toString().padStart(2, '0');
+    
+    currentTimeElement.textContent = `${hours}:${minutes}:${seconds}`;
+    
+    // 平日/休日の判定
+    const dayType = [0, 6].includes(now.getDay()) ? '休日' : '平日';
+    dayTypeElement.textContent = dayType;
+    
+    // 残り時間の表示を更新
+    updateRemainingTimes();
+    
     return now;
+  }
+  
+  // 残り時間の表示を更新
+  function updateRemainingTimes() {
+    const trainItems = document.querySelectorAll('.train-item');
+    if (trainItems.length === 0) return;
+    
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    
+    trainItems.forEach(item => {
+      const departureTimeEl = item.querySelector('.departure-time');
+      const remainingTimeEl = item.querySelector('.remaining-time');
+      
+      if (departureTimeEl && remainingTimeEl) {
+        const [hours, minutes] = departureTimeEl.textContent.split(':').map(Number);
+        const departureMinutes = hours * 60 + minutes;
+        const remainingMinutes = departureMinutes - currentMinutes;
+        
+        remainingTimeEl.textContent = `${remainingMinutes}分後`;
+        
+        // 5分以内は赤色表示
+        if (remainingMinutes <= 5) {
+          remainingTimeEl.style.color = '#ef4444';
+        } else {
+          remainingTimeEl.style.color = '';
+        }
+      }
+    });
   }
   
   // 駅選択時の処理
@@ -86,6 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // 電車リストを更新する関数
   function updateTrainList() {
+    showLoading(true);
     trainList.innerHTML = '';
     
     const station = stationSelect.value;
@@ -93,6 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (!station || !direction) {
       trainList.innerHTML = '<p class="no-selection">駅と方面を選択してください</p>';
+      showLoading(false);
       return;
     }
     
@@ -104,14 +154,15 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 該当する時刻表データを取得
     const scheduleForDirection = scheduleData[station][direction];
-    const scheduleData = scheduleForDirection.find(s => s.type === dayType);
+    const schedule = scheduleForDirection.find(s => s.type === dayType);
     
-    if (!scheduleData) {
+    if (!schedule) {
       trainList.innerHTML = '<p class="no-selection">この時間帯の運行データがありません</p>';
+      showLoading(false);
       return;
     }
     
-    const { times, types } = scheduleData;
+    const { times, types } = schedule;
     
     // 現在時刻以降の発車時刻を抽出（最大5件）
     const upcomingTrains = times
@@ -121,6 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (upcomingTrains.length === 0) {
       trainList.innerHTML = '<p class="no-selection">本日の運行は終了しました</p>';
+      showLoading(false);
       return;
     }
     
@@ -148,6 +200,10 @@ document.addEventListener('DOMContentLoaded', () => {
       
       trainList.appendChild(trainItem);
     });
+    
+    setTimeout(() => {
+      showLoading(false);
+    }, 500); // 少し遅延させて読み込み感を出す
   }
   
   // お気に入りを追加する関数
@@ -163,7 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
     );
     
     if (isDuplicate) {
-      alert('すでにお気に入りに登録されています');
+      showToast('すでにお気に入りに登録されています', 'error');
       return;
     }
     
@@ -175,6 +231,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // お気に入りリストを更新
     renderFavorites();
+    
+    // 成功メッセージ
+    showToast('お気に入りに追加しました', 'success');
   }
   
   // お気に入りリストを表示する関数
@@ -238,6 +297,112 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // お気に入りリストを更新
     renderFavorites();
+    
+    // 成功メッセージ
+    showToast('お気に入りを削除しました', 'success');
+  }
+  
+  // 位置情報から最寄り駅を検索する関数
+  function findNearestStation() {
+    // 駅の位置情報データがあるか確認
+    if (!stationGeoData) {
+      showToast('駅の位置情報データが読み込まれていません', 'error');
+      return;
+    }
+    
+    showLoading(true);
+    
+    // 位置情報の取得を許可するかプロンプト
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          // 現在位置の取得に成功
+          const userLat = position.coords.latitude;
+          const userLng = position.coords.longitude;
+          
+          // 各駅との距離を計算
+          let nearestStation = null;
+          let shortestDistance = Infinity;
+          
+          for (const [stationName, coords] of Object.entries(stationGeoData)) {
+            const distance = calculateDistance(
+              userLat, userLng, 
+              coords.lat, coords.lng
+            );
+            
+            if (distance < shortestDistance) {
+              shortestDistance = distance;
+              nearestStation = stationName;
+            }
+          }
+          
+          // 最寄り駅を選択
+          if (nearestStation) {
+            stationSelect.value = nearestStation;
+            // 選択した駅に対応する方面リストを生成する関数を呼び出し
+            onStationChange();
+            
+            // 成功メッセージを表示
+            showToast(`最寄り駅「${nearestStation}」を設定しました`, 'success');
+          } else {
+            showToast('最寄りの駅が見つかりませんでした', 'error');
+          }
+          
+          // ローディング非表示
+          showLoading(false);
+        },
+        (error) => {
+          // エラー処理
+          console.error('位置情報の取得に失敗しました:', error);
+          showToast('位置情報の取得に失敗しました', 'error');
+          showLoading(false);
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      );
+    } else {
+      // Geolocation APIに対応していない場合
+      showToast('お使いのブラウザは位置情報に対応していません', 'error');
+      showLoading(false);
+    }
+  }
+  
+  // 2点間の距離を計算する関数（ヴィンセンティの公式）
+  function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371; // 地球の半径（km）
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2); 
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+    const distance = R * c; // 距離（km）
+    return distance;
+  }
+  
+  // 度からラジアンに変換する関数
+  function deg2rad(deg) {
+    return deg * (Math.PI/180);
+  }
+  
+  // ローディング表示の切り替え
+  function showLoading(isLoading) {
+    if (isLoading) {
+      loadingIndicator.classList.add('show');
+    } else {
+      loadingIndicator.classList.remove('show');
+    }
+  }
+  
+  // トースト通知を表示する関数
+  function showToast(message, type = 'info') {
+    toast.textContent = message;
+    toast.className = `toast ${type} show`;
+    
+    // 3秒後に非表示
+    setTimeout(() => {
+      toast.classList.remove('show');
+    }, 3000);
   }
   
   // アプリケーションの初期化

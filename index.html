@@ -10,9 +10,24 @@
   <div class="app-container">
     <header>
       <h1>電車時刻表</h1>
+      <!-- 時刻と曜日表示の拡張 -->
+      <div class="day-type-container">
+        <span id="day-type">平日</span>
+      </div>
     </header>
     
     <div class="selection-area">
+      <!-- 最寄り駅ボタンを追加 -->
+      <div class="location-button-container">
+        <button id="nearest-station-btn" class="location-button">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+            <circle cx="12" cy="10" r="3"></circle>
+          </svg>
+          最寄り駅を検索
+        </button>
+      </div>
+      
       <select id="station-select">
         <option value="">駅を選択</option>
         <!-- 駅一覧はJSで動的に生成 -->
@@ -30,6 +45,13 @@
     
     <div class="next-trains-container">
       <h2>次の電車</h2>
+      
+      <!-- ローディングインジケータを追加 -->
+      <div id="loading-indicator" class="loading-indicator">
+        <div class="spinner"></div>
+        <p>データを読み込み中...</p>
+      </div>
+      
       <div id="train-list" class="train-list">
         <!-- 電車情報はJSで動的に生成 -->
         <p class="no-selection">駅と方面を選択してください</p>
@@ -47,9 +69,14 @@
         <!-- お気に入りはJSで動的に生成 -->
       </div>
     </div>
+    
+    <!-- トースト通知を追加 -->
+    <div id="toast" class="toast">お気に入りに追加しました</div>
   </div>
 
+  <!-- スクリプトタグの順序を維持 -->
   <script src="data.js"></script>
+  <script src="station-data.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
